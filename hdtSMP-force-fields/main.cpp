@@ -1,195 +1,63 @@
-#include "pch.h"
-#include "Config.h"
-#include "ForceFieldManager.h"
-#include "relocation.h"
-#include "var_size.h"
-#include "version.h"
-
-using UInt32 = std::uint32_t;
-using UInt64 = std::uint64_t;
-#include "skse64/PluginAPI.h"
 #include "PluginHelper.h"
+#include "hooks.h"
 
-constexpr const char* LOG_PATH_STEAM{ "\\My Games\\Skyrim Special Edition\\SKSE\\HDT-SMP Force Fields.log" };
-constexpr const char* CONFIG_PATH_STEAM{ "My Games\\Skyrim Special Edition\\SKSE\\HDT-SMP Force Fields.ini" };
-
-constexpr const char* LOG_PATH_GOG{ "\\My Games\\Skyrim Special Edition\\SKSE\\HDT-SMP Force Fields.log" };
-constexpr const char* CONFIG_PATH_GOG{ "My Games\\Skyrim Special Edition\\SKSE\\HDT-SMP Force Fields.ini" };
-
-const char* g_logPath;
-const char* g_cfgPath;
-
-bool attachHooks();
-bool loadConfig()
+static void InitializeLog(std::string_view pluginName)
 {
-	PWSTR wpath;
-	HRESULT res = SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, &wpath);
-	if (SUCCEEDED(res)) {
-		std::filesystem::path documents(wpath, std::filesystem::path::native_format);
-		std::filesystem::path configPath(documents / g_cfgPath);
-
-		_VMESSAGE("File path: %s", configPath.string().c_str());
-
-		return jg::g_config.load(configPath);
+#ifndef NDEBUG
+	auto sink = std::make_shared<spdlog::sinks::msvc_sink_mt>();
+#else
+	auto path = logger::log_directory();
+	if (!path) {
+		util::report_and_fail("Failed to find standard logging directory"sv);
 	}
-	else {
-		_WARNING("Documents folder not found.\n");
-		return false;
-	}
+
+	*path /= std::format("{}.log"sv, pluginName);
+	auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
+#endif
+
+#ifndef NDEBUG
+	const auto level = spdlog::level::trace;
+#else
+	const auto level = spdlog::level::info;
+#endif
+
+	auto log = std::make_shared<spdlog::logger>("global log"s, std::move(sink));
+	log->set_level(level);
+	log->flush_on(level);
+
+	spdlog::set_default_logger(std::move(log));
+	spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%t] [%s:%#] %v");
 }
 
-class MyHelper
+SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 {
-public:
-	inline static hdt::PluginInterface::Version interfaceMin{ 1, 0, 0 };
-	inline static hdt::PluginInterface::Version interfaceMax{ 2, 0, 0 };
+	const auto plugin{ SKSE::PluginDeclaration::GetSingleton() };
+	const auto name{ plugin->GetName() };
+	const auto version{ plugin->GetVersion() };
 
-	inline static hdt::PluginInterface::Version bulletMin{ hdt::PluginInterface::BULLET_VERSION };
-	inline static hdt::PluginInterface::Version bulletMax{ hdt::PluginInterface::BULLET_VERSION.major + 1, 0, 0 };
+	InitializeLog(name);
 
-	inline static hdt::PluginInterface* ifc = nullptr;
+	logger::info("{} {} is loading...", name, version);
 
-	static void onConnect(hdt::PluginInterface* smp)
+	SKSE::Init(a_skse);
+
+	if (REL::Module::IsVR())
 	{
-		ifc = smp;
+		REL::IDDatabase::get().IsVRAddressLibraryAtLeastVersion("0.135.0", true);
 	}
 
-	static void skseCallback(SKSEMessagingInterface::Message* msg)
-	{
-		if (msg && msg->type == SKSEMessagingInterface::kMessage_DataLoaded) {
-			if (ifc) {
-				gLog.Outdent();
-				_MESSAGE("Connection established.\n");
-
-				_MESSAGE("Starting ForceFieldManager...");
-				gLog.Indent();
-
-				ifc->addListener(&jg::ForceFieldManager::get());
-
-				gLog.Outdent();
-				_MESSAGE("ForceFieldManager started.");
-
-				gLog.Outdent();
-				_MESSAGE("Initialisation complete.\n");
-			}
-			else {
-				gLog.Outdent();
-				_ERROR("Failed to connect to HDT-SMP.");
-
-				gLog.Outdent();
-				_MESSAGE("Initialisation failed.");
-			}
-		}
+	logger::info("Attaching engine hooks...");
+	if (Hooks::Install()) {
+		logger::info("Engine hooks attached");
 	}
-};
-
-extern "C" {
-
-	__declspec(dllexport) SKSEPluginVersionData SKSEPlugin_Version = {
-		SKSEPluginVersionData::kVersion,
-		VERSION,
-		"HDT-SMP Force Fields",
-		"jgernandt",
-		"",
-		SKSEPluginVersionData::kVersionIndependentEx_NoStructUse,
-		SKSEPluginVersionData::kVersionIndependent_AddressLibraryPostAE,
-		{ 0 },
-		0,
-	};
-
-	__declspec(dllexport) bool SKSEPlugin_Load(const SKSEInterface* skse)
-	{
-		assert(skse);
-
-		SkyrimVersion version;
-		version.full = skse->runtimeVersion;
-		version.major = GET_EXE_VERSION_MAJOR(version.full);
-		version.minor = GET_EXE_VERSION_MINOR(version.full);
-		version.revision = GET_EXE_VERSION_BUILD(version.full);
-		version.platform = GET_EXE_VERSION_SUB(version.full);
-
-		switch (version.platform) {
-		case RUNTIME_TYPE_BETHESDA:
-			g_logPath = LOG_PATH_STEAM;
-			g_cfgPath = CONFIG_PATH_STEAM;
-			break;
-		case RUNTIME_TYPE_GOG:
-			g_logPath = LOG_PATH_GOG;
-			g_cfgPath = CONFIG_PATH_GOG;
-			break;
-		default:
-			return false;
-		}
-
-		gLog.OpenRelative(CSIDL_MYDOCUMENTS, g_logPath);
-		gLog.SetPrintLevel(IDebugLog::kLevel_Message);
-		gLog.SetLogLevel(IDebugLog::kLevel_Message);
-
-		_MESSAGE("Game version %d.%d.%d", version.major, version.minor, version.revision);
-		_MESSAGE("SKSE version %d.%d.%d",
-			GET_EXE_VERSION_MAJOR(skse->skseVersion),
-			GET_EXE_VERSION_MINOR(skse->skseVersion),
-			GET_EXE_VERSION_BUILD(skse->skseVersion));
-		_MESSAGE("Plugin version %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
-
-		if (!loadConfig()) {
-			_WARNING("Failed to load config file. Using default settings.\n");
-		}
-
-		auto logLevel = static_cast<IDebugLog::LogLevel>(std::clamp(jg::g_config.geti(jg::Config::LOG_LEVEL), 0, 5));
-		gLog.SetPrintLevel(logLevel);
-		gLog.SetLogLevel(logLevel);
-
-		_MESSAGE("Initialising plugin...");
-		gLog.Indent();
-
-		_MESSAGE("Determining object layout...");
-		gLog.Indent();
-		SizeManager::init(version.full);
-		gLog.Outdent();
-		_MESSAGE("Object layout determined.\n");
-		
-		_MESSAGE("Creating address table...");
-		gLog.Indent();
-		if (initAddressTable(version)) {
-			gLog.Outdent();
-			_MESSAGE("Address table created.\n");
-		}
-		else {
-			gLog.Outdent();
-			_FATALERROR("Failed to create address table.");
-			gLog.Outdent();
-			_MESSAGE("Initialisation failed.");
-			return false;
-		}
-
-		_MESSAGE("Attaching engine hooks...");
-		gLog.Indent();
-		if (attachHooks()) {
-			gLog.Outdent();
-			_MESSAGE("Engine hooks attached.\n");
-		}
-		else {
-			gLog.Outdent();
-			_FATALERROR("Failed to attach engine hooks.");
-			gLog.Outdent();
-			_MESSAGE("Initialisation failed.");
-			return false;
-		}
-
-		_MESSAGE("Connecting to HDT-SMP...");
-		gLog.Indent();
-		hdt::PluginHelper<MyHelper>::tryConnect(skse);
-		
-		return true;
+	else {
+		logger::error("Failed to attach engine hooks.");
+		logger::info("Initialisation failed.");
+		return false;
 	}
 
-	__declspec(dllexport) bool SKSEPlugin_Query(const SKSEInterface* skse, PluginInfo* info)
-	{
-		info->infoVersion = PluginInfo::kInfoVersion;
-		info->name = SKSEPlugin_Version.name;
-		info->version = SKSEPlugin_Version.pluginVersion;
+	logger::info("Connecting to HDT-SMP...");
+	hdt::PluginHelper::tryConnect(a_skse);
 
-		return true;
-	}
-};
+	return true;
+}

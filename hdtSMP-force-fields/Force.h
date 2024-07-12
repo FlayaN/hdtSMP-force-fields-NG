@@ -1,9 +1,6 @@
 #pragma once
-#include <cassert>
-#include <cmath>
-#include "BSFixedString.h"
-#include "BulletAPI.h"
-#include "Config.h"
+
+#include "Settings.h"
 #include "IForceField.h"
 #include "Objects.h"
 #include "utils.h"
@@ -15,7 +12,7 @@ namespace jg
 	public:
 		struct ParamMapping
 		{
-			Skyrim::BSFixedString fForce{ "fForce" };
+			std::string fForce{ "fForce" };
 
 			template<typename T>
 			void operator()(Force& target, T* owner, const ParamMap& params) const
@@ -28,7 +25,7 @@ namespace jg
 					target.m_intensity = obj_traits<T>::force(*owner);
 				}
 
-				_DMESSAGE("Force: %f", target.m_intensity);
+				logger::debug("Force: {}", target.m_intensity);
 			}
 		};
 
@@ -36,10 +33,10 @@ namespace jg
 		Force() = default;
 		~Force() = default;
 
-		float getForce() const { return g_config.getf(Config::FORCE_MULTIPLIER) * m_intensity; }
+		float getForce() const { return Settings::GetSingleton()->fForceMultiplier * m_intensity; }
 
 		template<typename T>
-		void update(T* owner, float dt) {}
+		void update(T*, float) {}
 
 	protected:
 		float m_intensity;
@@ -50,10 +47,10 @@ namespace jg
 	public:
 		struct ParamMapping
 		{
-			Skyrim::BSFixedString fRange{ "fRange" };
+			std::string fRange{ "fRange" };
 
 			template<typename T>
-			void operator()(Decaying& target, T* owner, const ParamMap& params) const
+			void operator()(Decaying& target, T*, const ParamMap& params) const
 			{
 				if (auto it = params.find(fRange); it != params.end() && it->second.f > 0.0f) {
 					//interpret range as half-life, in some user-defined units of the geometry size
@@ -63,7 +60,7 @@ namespace jg
 					target.m_decay = 0.0f;
 				}
 
-				_DMESSAGE("Decay: %f", target.m_decay);
+				logger::debug("Decay: {}", target.m_decay);
 			}
 		};
 
@@ -75,7 +72,7 @@ namespace jg
 		bool hasDecay() const { return m_decay > 0.0f; }
 
 		template<typename T>
-		void update(T* owner, float dt) {}
+		void update(T*, float) {}
 
 	private:
 		float m_decay;
@@ -87,10 +84,10 @@ namespace jg
 	public:
 		struct ParamMapping
 		{
-			Skyrim::BSFixedString fNoise{ "fNoise" };
+			std::string fNoise{ "fNoise" };
 
 			template<typename T>
-			void operator()(Noisy& target, T* owner, const ParamMap& params) const
+			void operator()(Noisy& target, T*, const ParamMap& params) const
 			{
 				if (auto it = params.find(fNoise); it != params.end() && it->second.f >= 0.0f) {
 					target.m_noise = it->second.f;
@@ -99,7 +96,7 @@ namespace jg
 					target.m_noise = 0.0f;
 				}
 
-				_DMESSAGE("Noise: %f", target.m_noise);
+				logger::debug("Noise: {}", target.m_noise);
 			}
 		};
 
@@ -120,7 +117,7 @@ namespace jg
 		}
 		
 		template<typename T>
-		void update(T* owner, float dt) {}
+		void update(T*, float) {}
 
 	private:
 		float m_noise;

@@ -1,10 +1,7 @@
 #pragma once
-#include <cassert>
-#include "BulletAPI.h"
+
 #include "Objects.h"
-#include "BSFixedString.h"
 #include "IForceField.h"
-#include "NiAVObject.h"
 
 namespace jg
 {
@@ -13,7 +10,7 @@ namespace jg
 	public:
 		struct ParamMapping
 		{
-			Skyrim::BSFixedString vTranslation{ "vTranslation" };
+			std::string vTranslation{ "vTranslation" };
 
 			template<typename T>
 			void operator()(Translatable& target, T* owner, const ParamMap& params) const
@@ -26,7 +23,7 @@ namespace jg
 				}
 				target.update(owner, 0.0f);
 
-				_DMESSAGE("Translation: (%f, %f, %f)", target.m_translation[0], target.m_translation[1], target.m_translation[2]);
+				logger::debug("Translation: ({}, {}, {})", target.m_translation[0], target.m_translation[1], target.m_translation[2]);
 			}
 
 		private:
@@ -45,7 +42,7 @@ namespace jg
 		btVector3 toWorld(const btVector3& p) const { return p + m_position; }
 
 		template<typename T>
-		void update(T* owner, float dt)
+		void update(T* owner, float)
 		{
 			assert(owner);
 			m_position = obj_traits<T>::translate(*owner, m_translation);
@@ -64,7 +61,7 @@ namespace jg
 	public:
 		struct ParamMapping
 		{
-			Skyrim::BSFixedString qRotation{ "qRotation" };
+			std::string qRotation{ "qRotation" };
 
 			template<typename T>
 			void operator()(Rotatable& target, T* owner, const ParamMap& params) const
@@ -79,12 +76,12 @@ namespace jg
 				}
 				target.update(owner, 0.0f);
 
-				_DMESSAGE("Rotation:");
-				_DMESSAGE("\t[%f, %f, %f]",
+				logger::debug("Rotation:");
+				logger::debug("\t[{}, {}, {}]",
 					target.m_rotation.getRow(0)[0], target.m_rotation.getRow(0)[1], target.m_rotation.getRow(0)[2]);
-				_DMESSAGE("\t[%f, %f, %f]",
+				logger::debug("\t[{}, {}, {}]",
 					target.m_rotation.getRow(1)[0], target.m_rotation.getRow(1)[1], target.m_rotation.getRow(1)[2]);
-				_DMESSAGE("\t[%f, %f, %f]",
+				logger::debug("\t[{}, {}, {}]",
 					target.m_rotation.getRow(2)[0], target.m_rotation.getRow(2)[1], target.m_rotation.getRow(2)[2]);
 			}
 
@@ -104,7 +101,7 @@ namespace jg
 		btVector3 toWorld(const btVector3& p) const { return m_orientation * p; }
 
 		template<typename T>
-		void update(T* owner, float dt)
+		void update(T* owner, float)
 		{
 			assert(owner);
 			m_orientation = obj_traits<T>::rotate(*owner, m_rotation);
@@ -125,7 +122,7 @@ namespace jg
 	public:
 		struct ParamMapping
 		{
-			Skyrim::BSFixedString fScale{ "fScale" };
+			std::string fScale{ "fScale" };
 
 			template<typename T>
 			void operator()(Scalable& target, T* owner, const ParamMap& params) const
@@ -137,7 +134,7 @@ namespace jg
 					target.m_scale = 1.0f;
 				}
 				target.update(owner, 0.0f);
-				_DMESSAGE("Scale: %f", target.m_scale);
+				logger::debug("Scale: {}", target.m_scale);
 			}
 
 		private:
@@ -156,7 +153,7 @@ namespace jg
 		btVector3 toWorld(const btVector3& p) const { return p * m_size; }
 
 		template<typename T>
-		void update(T* owner, float dt)
+		void update(T* owner, float)
 		{
 			assert(owner);
 			m_size = obj_traits<T>::scale(*owner, m_scale);
@@ -198,8 +195,8 @@ namespace jg
 		~Transformable() = default;
 
 		//transform a point in world space to local space
-		btVector3 toLocal(const btVector3& p) const 
-		{ 
+		btVector3 toLocal(const btVector3& p) const
+		{
 			return Scalable::toLocal(Rotatable::toLocal(Translatable::toLocal(p)));
 		}
 
@@ -228,7 +225,7 @@ namespace jg
 		{
 			Base::ParamMapping base;
 
-			Skyrim::BSFixedString vDirection{ "vDirection" };
+			std::string vDirection{ "vDirection" };
 
 			template<typename T>
 			void operator()(Directional& target, T* owner, const ParamMap& params) const
@@ -243,7 +240,7 @@ namespace jg
 					target.m_axis.setValue(1.0f, 0.0f, 0.0f);
 				}
 				target.updateInternal();
-				_DMESSAGE("Direction: (%f, %f, %f)", target.m_axis[0], target.m_axis[1], target.m_axis[2]);
+				logger::debug("Direction: ({}, {}, {})", target.m_axis[0], target.m_axis[1], target.m_axis[2]);
 			}
 		};
 

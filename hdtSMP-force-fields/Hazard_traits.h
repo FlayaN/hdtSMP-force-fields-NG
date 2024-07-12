@@ -1,18 +1,21 @@
 #pragma once
+
 #include "ObjRef_traits.h"
-#include "Hazard.h"
 
 namespace jg
 {
 	template<>
-	struct obj_traits<Skyrim::Hazard> : obj_traits<Skyrim::ObjectReference>
+	struct obj_traits<RE::Hazard> : obj_traits<RE::TESObjectREFR>
 	{
 		constexpr static bool hasAge() { return true; }
-		static float age(const Skyrim::Hazard& obj) { return obj.getAge(); }
+		static float age(const RE::Hazard& obj) { return obj.GetHazardRuntimeData().age; }
 
-		static float duration(const Skyrim::Hazard& obj) { return obj.getDuration(); }
+		static float duration(const RE::Hazard& obj) { return obj.GetHazardRuntimeData().lifetime; }
 
-		static float length(const Skyrim::Hazard& obj) { return radius(obj); }
-		static float radius(const Skyrim::Hazard& obj) { return obj.getRadius(); }
+		static float length(const RE::Hazard& obj) { return radius(obj); }
+
+		//Hazard radius uses UI units, not game units (inconsistent with Explosion and Projectile). 
+		//The conversion factor appears to be 22.
+		static float radius(const RE::Hazard& obj) { return 22.0f * obj.GetHazardRuntimeData().radius; }
 	};
 }

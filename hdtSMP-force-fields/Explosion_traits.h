@@ -1,26 +1,24 @@
 #pragma once
 #include "ObjRef_traits.h"
-#include "Explosion.h"
 
 namespace jg
 {
 	template<>
-	struct obj_traits<Skyrim::Explosion> : obj_traits<Skyrim::ObjectReference>
+	struct obj_traits<RE::Explosion> : obj_traits<RE::TESObjectREFR>
 	{
-		using base_type = Skyrim::ExplosionBase;
-
 		constexpr static bool hasAge() { return true; }
-		static float age(const Skyrim::Explosion& obj) { return obj.getAge(); }
+		static float age(const RE::Explosion& obj) { return obj.startKeyTime; }
 
 		//static float duration(const Explosion& obj) { return obj.getDuration(); }//explosion duration is not used?
 
-		static float force(const Skyrim::Explosion& obj)
+		static float force(const RE::Explosion& obj)
 		{
-			auto base = obj.getBaseFormAs<base_type>();
-			return base ? base->getForce() : 0.0f;
+			auto* objRef = obj.GetObjectReference();
+			auto* base = objRef ? objRef->As<RE::BGSExplosion>() : nullptr;
+			return base ? base->data.force : 0.0f;
 		}
 
-		static float length(const Skyrim::Explosion& obj) { return radius(obj); }
-		static float radius(const Skyrim::Explosion& obj) { return obj.getRadius(); }
+		static float length(const RE::Explosion& obj) { return radius(obj); }
+		static float radius(const RE::Explosion& obj) { return obj.radius; }
 	};
 }

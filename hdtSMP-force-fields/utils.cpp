@@ -1,6 +1,3 @@
-#include "pch.h"
-#include "NiAVObject.h"
-#include "Relocation.h"
 #include "utils.h"
 
 thread_local std::minstd_rand g_rng;
@@ -12,48 +9,45 @@ float jg::randf(float min, float max)
 	return d(g_rng);
 }
 
-btVector3 jg::toWorld(Skyrim::NiAVObject* parent, const btVector3& translation)
+btVector3 jg::toWorld(RE::NiAVObject* parent, const btVector3& translation)
 {
 	if (parent) {
-		auto&& t = parent->getWorldTransform().t;
-		auto&& A = parent->getWorldTransform().r;
+		auto&& t = parent->world.translate;
+		auto&& A = parent->world.rotate;
 
 		//result = parent position + parent scale * parent rotation * translation
 
-		btVector3 result(
-			A(0, 0) * translation[0] + A(0, 1) * translation[1] + A(0, 2) * translation[2],
-			A(1, 0) * translation[0] + A(1, 1) * translation[1] + A(1, 2) * translation[2],
-			A(2, 0) * translation[0] + A(2, 1) * translation[1] + A(2, 2) * translation[2]);
+		RE::NiPoint3 res = A * RE::NiPoint3(translation[0], translation[1], translation[2]);
 
-		result *= parent->getWorldTransform().s;
-		result += btVector3(t.x, t.y, t.z);
+		res *= parent->world.scale;
+		res += t;
 
-		return result;
+		return btVector3(res.x, res.y, res.z);
 	}
 	else {
 		return translation;
 	}
 }
 
-btMatrix3x3 jg::toWorld(Skyrim::NiAVObject* parent, const btMatrix3x3& rotation)
+btMatrix3x3 jg::toWorld(RE::NiAVObject* parent, const btMatrix3x3& rotation)
 {
 	if (parent) {
-		auto&& A = parent->getWorldTransform().r;
+		auto&& A = parent->world.rotate;
 
 		return btMatrix3x3(
-			A(0, 0), A(0, 1), A(0, 2),
-			A(1, 0), A(1, 1), A(1, 2),
-			A(2, 0), A(2, 1), A(2, 2)) * rotation;
+			A.entry[0][0], A.entry[0][1], A.entry[0][2],
+			A.entry[1][0], A.entry[1][1], A.entry[1][2],
+			A.entry[2][0], A.entry[2][1], A.entry[2][2]) * rotation;
 	}
 	else {
 		return rotation;
 	}
 }
 
-float jg::toWorld(Skyrim::NiAVObject* parent, float scale)
+float jg::toWorld(RE::NiAVObject* parent, float scale)
 {
 	if (parent) {
-		return parent->getWorldTransform().s * scale;
+		return parent->world.scale * scale;
 	}
 	else {
 		return scale;

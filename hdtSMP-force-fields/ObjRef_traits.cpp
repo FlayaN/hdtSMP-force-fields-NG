@@ -1,8 +1,6 @@
-#include "pch.h"
-#include "Cell.h"
 #include "ObjRef_traits.h"
 
-bool jg::obj_traits<Skyrim::ObjectReference>::isAttached(const Skyrim::ObjectReference& obj)
+bool jg::obj_traits<RE::TESObjectREFR>::isAttached(const RE::TESObjectREFR& obj)
 {
-	return obj.getParentCell() && obj.getParentCell()->isAttached();
+	return obj.GetParentCell() && obj.GetParentCell()->cellState.get() == RE::TESObjectCELL::CellState::kAttached;
 }

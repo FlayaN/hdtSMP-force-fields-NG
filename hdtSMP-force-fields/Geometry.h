@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Transformable.h"
 
 namespace jg
@@ -13,7 +14,7 @@ namespace jg
 		{
 			Transformable::ParamMapping transformable;
 
-			Skyrim::BSFixedString vBox{ "vBox" };
+			std::string vBox{ "vBox" };
 
 			template<typename T>
 			void operator()(Cuboid& target, T* owner, const ParamMap& params) const
@@ -32,7 +33,7 @@ namespace jg
 				}
 				target.m_maxDim = std::max({ target.m_dims[0], target.m_dims[1],target.m_dims[2] });
 
-				_DMESSAGE("Box: (%f, %f, %f)", target.m_dims[0], target.m_dims[1], target.m_dims[2]);
+				logger::debug("Box: ({}, {}, {})", target.m_dims[0], target.m_dims[1], target.m_dims[2]);
 			}
 
 		private:
@@ -74,7 +75,7 @@ namespace jg
 		{
 			Transformable::ParamMapping transformable;
 
-			Skyrim::BSFixedString fRadius{ "fRadius" };
+			std::string fRadius{ "fRadius" };
 
 			template<typename T>
 			void operator()(Polar& target, T* owner, const ParamMap& params) const
@@ -90,7 +91,7 @@ namespace jg
 				}
 				target.updateInternal();
 
-				_DMESSAGE("Radius: %f", target.m_radius);
+				logger::debug("Radius: {}", target.m_radius);
 			}
 		};
 
@@ -151,7 +152,7 @@ namespace jg
 		{
 			Polar::ParamMapping polar;
 
-			Skyrim::BSFixedString fLength{ "fLength" };
+			std::string fLength{ "fLength" };
 
 			template<typename T>
 			void operator()(Cylindrical& target, T* owner, const ParamMap& params) const
@@ -165,7 +166,7 @@ namespace jg
 					assert(owner);
 					target.m_length = obj_traits<T>::length(*owner);
 				}
-				_DMESSAGE("Length: %f", target.m_length);
+				logger::debug("Length: {}", target.m_length);
 			}
 		};
 

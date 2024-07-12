@@ -1,4 +1,5 @@
 #pragma once
+
 #include "Concepts.h"
 #include "TForceField.h"
 
@@ -8,7 +9,7 @@ namespace jg
 
 	struct BombParams : BombConcepts::ParamMapping
 	{
-		Skyrim::BSFixedString fSpeed{ "fSpeed" };
+		RE::BSFixedString fSpeed{ "fSpeed" };
 	};
 
 	struct Bomb : BombConcepts
@@ -20,7 +21,7 @@ namespace jg
 
 			//m_speed = 20000.0f;//the speed of sound in game units (too high to look good?)
 			m_speed = 5000.0f;
-			_DMESSAGE("Speed: %f", m_speed);
+			logger::debug("Speed: {}", m_speed);
 
 			m_Rmax = 2.0f * getRadius();
 			m_duration = m_Rmax / m_speed;

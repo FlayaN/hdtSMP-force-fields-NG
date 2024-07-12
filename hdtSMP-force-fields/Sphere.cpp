@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "Sphere.h"
 
 void jg::Sphere::actOn(btRigidBody& body) const

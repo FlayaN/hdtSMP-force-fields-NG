@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "Vortex.h"
 
 void jg::Vortex::actOn(btRigidBody& body) const

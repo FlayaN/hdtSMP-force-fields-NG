@@ -1,5 +1,4 @@
 #pragma once
-#include <type_traits>
 
 template<typename T> requires std::is_fundamental_v<T> || std::is_pointer_v<T>
 T get_member(const void* base, uintptr_t offset)

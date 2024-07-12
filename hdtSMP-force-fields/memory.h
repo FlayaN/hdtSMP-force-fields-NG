@@ -1,9 +1,8 @@
 #pragma once
-#include <cstddef>
 
 namespace Skyrim
 {
-	void* alloc(std::size_t count, std::size_t al = __STDCPP_DEFAULT_NEW_ALIGNMENT__);
+	void* alloc(std::size_t count, std::int32_t al = __STDCPP_DEFAULT_NEW_ALIGNMENT__);
 	void free(void* ptr, std::size_t al = __STDCPP_DEFAULT_NEW_ALIGNMENT__);
 
 	template<typename T>
@@ -15,7 +14,7 @@ namespace Skyrim
 
 		constexpr allocator() noexcept = default;
 		constexpr allocator(const allocator& other) noexcept = default;
-		template<typename U> constexpr allocator(const allocator<U>& other) noexcept {}
+		template<typename U> constexpr allocator(const allocator<U>&) noexcept {}
 
 		constexpr ~allocator() = default;
 

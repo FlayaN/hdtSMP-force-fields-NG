@@ -1,4 +1,5 @@
 #pragma once
+
 #include "IForceField.h"
 #include "Objects.h"
 #include "utils.h"
@@ -32,7 +33,6 @@ namespace jg
 		}
 	};
 
-	
 	template<typename T, typename Impl>
 	class TField : public IForceField
 	{
@@ -41,15 +41,13 @@ namespace jg
 		TField(T* owner, const ParamMap& params, const PM& pm) :
 			m_owner{ owner }
 		{
-			_DMESSAGE("%s<%s>(%p)", typeid(Impl).name(), typeid(T).name(), this);
-			gLog.Indent();
+			logger::debug("{}<{}>", typeid(Impl).name(), typeid(T).name());
 			m_impl.mapParams(owner, params, pm);
-			gLog.Outdent();
 		}
 
 		virtual ~TField() override
 		{
-			_DMESSAGE("~%s<%s>(%p)", typeid(Impl).name(), typeid(T).name(), this);
+			logger::debug("~{}<{}>", typeid(Impl).name(), typeid(T).name());
 		}
 
 		virtual void actOn(btRigidBody& body) const override
@@ -81,28 +79,28 @@ namespace jg
 		TFactory() = default;
 		virtual ~TFactory() override = default;
 
-		[[nodiscard]] virtual std::unique_ptr<IForceField> create(Skyrim::ModelReferenceEffect* owner, const ParamMap& params) override
+		[[nodiscard]] virtual std::unique_ptr<IForceField> create(RE::ModelReferenceEffect* owner, const ParamMap& params) override
 		{
 			return createImpl(owner, params);
 		}
-		[[nodiscard]] virtual std::unique_ptr<IForceField> create(Skyrim::ObjectReference* owner, const ParamMap& params) override
+		[[nodiscard]] virtual std::unique_ptr<IForceField> create(RE::TESObjectREFR* owner, const ParamMap& params) override
 		{
 			assert(owner);
 
-			switch (owner->getFormType()) {
-			case Skyrim::Hazard::FORM_TYPE:
-				return createImpl(static_cast<Skyrim::Hazard*>(owner), params);
-			case Skyrim::ConeProjectile::FORM_TYPE:
-				return createImpl(static_cast<Skyrim::ConeProjectile*>(owner), params);
-			case Skyrim::FormType::REF_MISSILE:
-			case Skyrim::FormType::REF_ARROW:
-			case Skyrim::FormType::REF_GRENADE:
-			case Skyrim::FormType::REF_BEAM:
-			case Skyrim::FormType::REF_FLAME:
-			case Skyrim::FormType::REF_BARRIER:
-				return createImpl(static_cast<Skyrim::Projectile*>(owner), params);
+			switch (owner->GetFormType()) {
+			case RE::Hazard::FORMTYPE:
+				return createImpl(static_cast<RE::Hazard*>(owner), params);
+			case RE::ConeProjectile::FORMTYPE:
+				return createImpl(static_cast<RE::ConeProjectile*>(owner), params);
+			case RE::FormType::ProjectileMissile:
+			case RE::FormType::ProjectileArrow:
+			case RE::FormType::ProjectileGrenade:
+			case RE::FormType::ProjectileBeam:
+			case RE::FormType::ProjectileFlame:
+			case RE::FormType::ProjectileBarrier:
+				return createImpl(static_cast<RE::Projectile*>(owner), params);
 			default:
-				if (auto exp = owner->asExplosion()) {
+				if (auto exp = owner->AsExplosion()) {
 					return createImpl(exp, params);
 				}
 				else {

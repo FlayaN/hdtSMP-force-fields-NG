@@ -1,6 +1,6 @@
 #pragma once
+
 #include "Objects.h"
-#include "BSFixedString.h"
 #include "IForceField.h"
 #include "utils.h"
 
@@ -12,7 +12,7 @@ namespace jg
 		struct ParamMapping
 		{
 			template<typename T>
-			void operator()(Clock& target, T* owner, const ParamMap& params) const {}
+			void operator()(Clock&, T*, const ParamMap&) const {}
 		};
 
 	public:
@@ -47,7 +47,7 @@ namespace jg
 		{
 			Base::ParamMapping base;
 
-			Skyrim::BSFixedString fDuration{ "fDuration" };
+			std::string fDuration{ "fDuration" };
 
 			template<typename T>
 			void operator()(Expiring& target, T* owner, const ParamMap& params) const
@@ -62,7 +62,7 @@ namespace jg
 					target.m_duration = obj_traits<T>::duration(*owner);
 				}
 
-				_DMESSAGE("Duration: %f", target.getDuration());
+				logger::debug("Duration: {}", target.getDuration());
 			}
 		};
 
@@ -96,9 +96,9 @@ namespace jg
 		{
 			Base::ParamMapping base;
 
-			Skyrim::BSFixedString fAmplitude{ "fAmplitude" };
-			Skyrim::BSFixedString fFrequency{ "fFrequency" };
-			Skyrim::BSFixedString fSpeed{ "fSpeed" };
+			std::string fAmplitude{ "fAmplitude" };
+			std::string fFrequency{ "fFrequency" };
+			std::string fSpeed{ "fSpeed" };
 
 			template<typename T>
 			void operator()(Fluctuating& target, T* owner, const ParamMap& params) const
@@ -109,19 +109,19 @@ namespace jg
 					target.m_amplitude = it->second.f;
 					target.m_halfAmp = 0.5f * target.m_amplitude;
 				}
-				_DMESSAGE("Amplitude: %f", target.m_amplitude);
+				logger::debug("Amplitude: {}", target.m_amplitude);
 
 				if (auto it = params.find(fFrequency); it != params.end() && it->second.f > 0.0f) {
 					target.m_frequency = it->second.f;
 					target.m_angFreq = 2.0f * PI * target.m_frequency;
 				}
 				target.m_angFreq2 = target.m_angFreq * randf(0.15f, 0.3f);
-				_DMESSAGE("Frequency: %f", target.m_frequency);
+				logger::debug("Frequency: {}", target.m_frequency);
 
 				if (auto it = params.find(fSpeed); it != params.end() && it->second.f > 0.0f) {
 					target.m_speed = it->second.f;
 				}
-				_DMESSAGE("Speed: %f", target.m_speed);
+				logger::debug("Speed: {}", target.m_speed);
 			}
 		};
 

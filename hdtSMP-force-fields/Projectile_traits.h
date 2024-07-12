@@ -1,43 +1,54 @@
 #pragma once
+
 #include "ObjRef_traits.h"
-#include "Projectile.h"
 
 namespace jg
 {
 	template<>
-	struct obj_traits<Skyrim::Projectile> : obj_traits<Skyrim::ObjectReference>
+	struct obj_traits<RE::Projectile> : obj_traits<RE::TESObjectREFR>
 	{
-		constexpr static Skyrim::FormType BASE_TYPE = Skyrim::FormType::PROJECTILE;
-		using base_type = Skyrim::ProjectileBase;
+		constexpr static RE::FormType BASE_TYPE = RE::FormType::Projectile;
 
 		constexpr static bool hasAge() { return true; }
-		static float age(const Skyrim::Projectile& obj) { return obj.getAge(); }
+		static float age(const RE::Projectile& obj) { return obj.GetProjectileRuntimeData().livingTime; }
 
-		static float force(const Skyrim::Projectile& obj)
+		static float force(const RE::Projectile& obj)
 		{
-			auto base = obj.getBaseFormAs<base_type>();
-			return base ? base->getForce() : 0.0f;
+			auto base = obj.GetProjectileBase();
+			return base ? base->data.force : 0.0f;
 		}
 
-		static float length(const Skyrim::Projectile& obj) { return radius(obj); }
-		static float radius(const Skyrim::Projectile& obj)
+		static float length(const RE::Projectile& obj) { return radius(obj); }
+		static float radius(const RE::Projectile& obj)
 		{
-			auto base = obj.getBaseFormAs<base_type>();
-			return base ? base->getRadius() : 0.0f;
+			auto base = obj.GetProjectileBase();
+			return base ? base->data.collisionRadius : 0.0f;
 		}
 
-		static float scale(const Skyrim::Projectile& obj, float s)
+		static float scale(const RE::Projectile& obj, float s)
 		{
-			return obj_traits<Skyrim::ObjectReference>::scale(obj, s) * obj.getScale();
+			return obj_traits<RE::TESObjectREFR>::scale(obj, s) * obj.GetProjectileRuntimeData().scale;
 		}
 	};
 
 	template<>
-	struct obj_traits<Skyrim::ConeProjectile> : obj_traits<Skyrim::Projectile>
+	struct obj_traits<RE::ConeProjectile> : obj_traits<RE::Projectile>
 	{
-		static float scale(const Skyrim::ConeProjectile& obj, float s)
+		static float getSpread(const RE::ConeProjectile& obj)
 		{
-			return obj_traits<Skyrim::Projectile>::scale(obj, s) * obj.getSpread();
+			if (auto base = obj.GetProjectileBase()) {
+				auto& coneRunetimeData = obj.GetConeRuntimeData();
+				auto& projectileRuntimeData = obj.GetProjectileRuntimeData();
+				return 1.0f + coneRunetimeData.coneAngleTangent * projectileRuntimeData.livingTime * base->data.speed * projectileRuntimeData.speedMult / coneRunetimeData.initialCollisionSphereRadius;
+			}
+			else {
+				return 1.0f;
+			}
+		}
+
+		static float scale(const RE::ConeProjectile& obj, float s)
+		{
+			return obj_traits<RE::Projectile>::scale(obj, s) * getSpread(obj);
 		}
 	};
 }

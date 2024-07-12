@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "Cylinder.h"
 
 void jg::Cylinder::actOn(btRigidBody& body) const

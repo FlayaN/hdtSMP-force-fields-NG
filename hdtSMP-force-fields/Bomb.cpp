@@ -1,4 +1,3 @@
-#include "pch.h"
 #include "Bomb.h"
 
 void jg::Bomb::actOn(btRigidBody& body) const

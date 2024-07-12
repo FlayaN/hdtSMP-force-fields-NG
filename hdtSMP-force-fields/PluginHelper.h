@@ -1,5 +1,7 @@
 #pragma once
-#include "PluginAPI.h"
+
+#include "ForceFieldManager.h"
+#include "Settings.h"
 
 namespace hdt
 {
@@ -34,63 +36,67 @@ namespace hdt
 		return !(rhs < lhs);
 	}
 
-	template<typename T>
-	class PluginHelper : T
+	class PluginHelper
 	{
 	public:
-		static bool tryConnect(const SKSEInterface* skse, bool externalCallback = false)
+		static void tryConnect(const SKSE::LoadInterface*)
 		{
-			assert(skse);
-
-			s_interface = reinterpret_cast<SKSEMessagingInterface*>(skse->QueryInterface(kInterface_Messaging));
-			if (s_interface) {
-				s_handle = skse->GetPluginHandle();
-				if (!externalCallback) {
-					s_interface->RegisterListener(s_handle, "SKSE", &skseCallback);
-				}
-				return true;
-			}
-			else {
-				_ERROR("ERROR: Failed to get an SKSEMessagingInterface.");
-				return false;
-			}
+			SKSE::GetMessagingInterface()->RegisterListener("SKSE", &skseCallback);
 		}
+	private:
 
-		static void skseCallback(SKSEMessagingInterface::Message* msg)
+		inline static hdt::PluginInterface::Version interfaceMin{ 1, 0, 0 };
+		inline static hdt::PluginInterface::Version interfaceMax{ 2, 0, 0 };
+
+		inline static hdt::PluginInterface::Version bulletMin{ hdt::PluginInterface::BULLET_VERSION };
+		inline static hdt::PluginInterface::Version bulletMax{ hdt::PluginInterface::BULLET_VERSION.major + 1, 0, 0 };
+
+		inline static hdt::PluginInterface* ifc = nullptr;
+
+		static void skseCallback(SKSE::MessagingInterface::Message* msg)
 		{
-			if (msg && msg->type == SKSEMessagingInterface::kMessage_PostLoad) {
-				if (s_interface->RegisterListener(s_handle, "hdtSMP64", &smpCallback)) {
+			if (msg && msg->type == SKSE::MessagingInterface::kPostLoad) {
+				jg::Settings::GetSingleton()->LoadSettings();
+				if (!SKSE::GetMessagingInterface()->RegisterListener("hdtSMP64", &smpCallback)) {
+					logger::error("HDT-SMP is not loaded.");
+				}
+			}
+			if (msg && msg->type == SKSE::MessagingInterface::kDataLoaded) {
+				if (ifc) {
+					logger::info("Connection established.");
+
+					logger::info("Starting ForceFieldManager...");
+					ifc->addListener(&jg::ForceFieldManager::get());
+					logger::info("ForceFieldManager started.");
+
+					logger::info("Initialisation complete.");
 				}
 				else {
-					_ERROR("ERROR: HDT-SMP is not loaded.");
+					logger::error("Failed to connect to HDT-SMP.");
+					logger::info("Initialisation failed.");
 				}
 			}
-			T::skseCallback(msg);
 		}
 
-		static void smpCallback(SKSEMessagingInterface::Message* msg)
+		static void smpCallback(SKSE::MessagingInterface::Message* msg)
 		{
 			if (msg && msg->type == hdt::PluginInterface::MSG_STARTUP && msg->data) {
 				auto smp = reinterpret_cast<hdt::PluginInterface*>(msg->data);
 
 				auto&& info = smp->getVersionInfo();
 
-				if (info.interfaceVersion >= T::interfaceMin && info.interfaceVersion < T::interfaceMax) {
-					if (info.bulletVersion >= T::bulletMin && info.bulletVersion < T::bulletMax) {
-						T::onConnect(smp);
+				if (info.interfaceVersion >= interfaceMin && info.interfaceVersion < interfaceMax) {
+					if (info.bulletVersion >= bulletMin && info.bulletVersion < bulletMax) {
+						ifc = smp;
 					}
 					else {
-						_ERROR("ERROR: Incompatible Bullet version.");
+						logger::error("Incompatible Bullet version.");
 					}
 				}
 				else {
-					_ERROR("ERROR: Incompatible HDT-SMP interface.");
+					logger::error("Incompatible HDT-SMP interface.");
 				}
 			}
 		}
-
-	private:
-		inline static SKSEMessagingInterface* s_interface{};
-		inline static PluginHandle s_handle{};
 	};
 }

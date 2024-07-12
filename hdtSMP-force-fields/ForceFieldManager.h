@@ -1,20 +1,10 @@
+#pragma once
+
 #include <barrier>
-#include <map>
 #include <shared_mutex>
 #include <semaphore>
-#include <thread>
-#include <vector>
-
-#include "PluginAPI.h"
 
 #include "IForceField.h"
-#include "BSFixedString.h"
-
-namespace Skyrim
-{
-	class NiAVObject;
-	class NiStringsExtraData;
-}
 
 namespace jg
 {
@@ -65,17 +55,17 @@ namespace jg
 
 		virtual void onEvent(const hdt::PreStepEvent& e) override;
 
-		template<typename T> void onAttach(Skyrim::NiAVObject* model, T* owner);
-		void onDetach(Skyrim::NiAVObject* model, void* owner);
+		template<typename T> void onAttach(RE::NiAVObject* model, T* owner);
+		void onDetach(RE::NiAVObject* model, void* owner);
 
 	private:
 		using ObjectAllocator = Skyrim::allocator<std::pair<void* const, IForceField*>>;
 		using ObjectMap = std::map<void*, IForceField*, std::less<void*>, ObjectAllocator>;
 
 		ObjectMap::const_iterator	findEntry(void* object) const;
-		IForceFieldFactory*			getFactory(Skyrim::NiStringsExtraData* data) const;
-		ParamMap					getFieldParameters(Skyrim::NiStringsExtraData* data) const;
-		Skyrim::NiStringsExtraData*	getFieldData(Skyrim::NiAVObject* model) const;
+		IForceFieldFactory*			getFactory(RE::NiStringsExtraData* data) const;
+		ParamMap					getFieldParameters(RE::NiStringsExtraData* data) const;
+		RE::NiStringsExtraData*	getFieldData(RE::NiAVObject* model) const;
 		bool						hasEntry(void* object) const;
 		void						insertField(void* owner, std::unique_ptr<IForceField>&& field);
 		ParamMap::value_type		parseParamStr(const char* str) const;
@@ -93,18 +83,18 @@ namespace jg
 		Fields m_active;
 
 		//Never changed outside of init, so this requires no synchronisation
-		std::map<Skyrim::BSFixedString, std::unique_ptr<IForceFieldFactory>> m_factories;
+		std::map<std::string, std::unique_ptr<IForceFieldFactory>, CaseInsensitiveComparator> m_factories;
 
-		Skyrim::BSFixedString m_dataName;
+		RE::BSFixedString m_dataName;
 
 		WorkerPool m_workerPool;
 	};
 
 	template<typename T>
-	inline void jg::ForceFieldManager::onAttach(Skyrim::NiAVObject* model, T* owner)
+	inline void jg::ForceFieldManager::onAttach(RE::NiAVObject* model, T* owner)
 	{
 		//assert(model);
-		//_DMESSAGE("Attaching %s", model->m_name ? model->m_name : "");
+		//logger::debug("Attaching {}", model->name);
 
 		if (auto data = getFieldData(model)) {
 			if (!hasEntry(owner)) {

@@ -1,41 +1,34 @@
-#include "pch.h"
-
-#include "Config.h"
 #include "ForceFieldManager.h"
-#include "relocation.h"
-#include "Timer.h"
 
+#include "Settings.h"
+#include "Timer.h"
 #include "Bomb.h"
 #include "Cylinder.h"
 #include "Plane.h"
 #include "Sphere.h"
 #include "Vortex.h"
 
-#include "NiStringsExtraData.h"
-
 #define LOG_TIMER
 
 jg::ForceFieldManager::ForceFieldManager() :
-	m_workerPool(g_config.geti(Config::THREADS))
+	m_workerPool(Settings::GetSingleton()->iThreads)
 {
 	m_dataName = "HDT-SMP Force Field";
 
-	m_factories[Skyrim::BSFixedString("CYLINDRICAL")] = std::make_unique<CylinderFactory>();
-	m_factories[Skyrim::BSFixedString("PLANAR_BOX")] = std::make_unique<BoxFactory>();
-	m_factories[Skyrim::BSFixedString("PLANAR_CYL")] = std::make_unique<RodFactory>();
-	m_factories[Skyrim::BSFixedString("PLANAR_SPH")] = std::make_unique<BallFactory>();
-	m_factories[Skyrim::BSFixedString("SPHERICAL")] = std::make_unique<SphereFactory>();
-	m_factories[Skyrim::BSFixedString("VORTEX")] = std::make_unique<VortexFactory>();
+	m_factories["CYLINDRICAL"] = std::make_unique<CylinderFactory>();
+	m_factories["PLANAR_BOX"] = std::make_unique<BoxFactory>();
+	m_factories["PLANAR_CYL"] = std::make_unique<RodFactory>();
+	m_factories["PLANAR_SPH"] = std::make_unique<BallFactory>();
+	m_factories["SPHERICAL"] = std::make_unique<SphereFactory>();
+	m_factories["VORTEX"] = std::make_unique<VortexFactory>();
 
 	//Bomb is unfinished and janky, leave it out for now
-	//m_factories[Skyrim::BSFixedString("BOMB")] = std::make_unique<BombFactory>();
+	//m_factories["BOMB"] = std::make_unique<BombFactory>();
 
-	_VMESSAGE("Field types:");
-	gLog.Indent();
+	logger::info("Field types:");
 	for (auto&& item : m_factories) {
-		_VMESSAGE("%s", item.first.c_str());
+		logger::info("{}", item.first.c_str());
 	}
-	gLog.Outdent();
 }
 
 void jg::ForceFieldManager::onEvent(const hdt::PreStepEvent& e)
@@ -65,7 +58,7 @@ void jg::ForceFieldManager::onEvent(const hdt::PreStepEvent& e)
 	}
 
 	Timer<float, std::micro> newTimer;
-	
+
 	if (!m_active.empty() && e.objects.size() != 0) {
 		//We dynamically select the fastest threading policy, based on previous performance.
 		if (m_workerPool && (lastMulti || lastSingle) && randf() < lastSingle / (lastMulti + lastSingle)) {
@@ -98,16 +91,16 @@ void jg::ForceFieldManager::onEvent(const hdt::PreStepEvent& e)
 			lastMulti *= 0.99f;
 		}
 	}
-	
+
 #ifdef LOG_TIMER
-	if (g_config.getb(Config::LOG_STATS)) {
+	if (Settings::GetSingleton()->bLogStatistics) {
 		fields += m_active.size();
 		objects += e.objects.size();
 		time += timer.elapsed();
 		steps++;
 
 		if (steps == 120) {
-			_MESSAGE("Active fields: %d\tCollision objects: %d\tFraction multithreaded: %.2f\tUpdate time: %d microseconds", 
+			logger::info("Active fields: {}\tCollision objects: {}\tFraction multithreaded: {:.2f}\tUpdate time: {} microseconds",
 				fields / 120, objects / 120, (float)multiCount / 120, time / 120);
 			fields = 0;
 			objects = 0;
@@ -121,15 +114,15 @@ void jg::ForceFieldManager::onEvent(const hdt::PreStepEvent& e)
 	m_active.clear();
 }
 
-void jg::ForceFieldManager::onDetach(Skyrim::NiAVObject* model, void* owner)
+void jg::ForceFieldManager::onDetach(RE::NiAVObject* model, void* owner)
 {
-	//assert(model);
-	//_DMESSAGE("Detaching %s", model->m_name ? model->m_name : "");
+	// assert(model);
+	// logger::info("Detaching {}", model->name);
 
 	if (auto entry = findEntry(owner); entry != m_fieldMap.end()) {
 		std::lock_guard<decltype(m_mutex)> lock(m_mutex);
 		if (entry->second) {
-			auto field = std::find_if(m_fields.begin(), m_fields.end(), 
+			auto field = std::find_if(m_fields.begin(), m_fields.end(),
 				[=](const std::shared_ptr<IForceField>& ptr) { return ptr.get() == entry->second; });
 			//We don't need this check unless our data has been corrupted. Should be impossible right now.
 			assert(field != m_fields.end());
@@ -148,53 +141,51 @@ jg::ForceFieldManager::ObjectMap::const_iterator jg::ForceFieldManager::findEntr
 	return m_fieldMap.end();
 }
 
-jg::IForceFieldFactory* jg::ForceFieldManager::getFactory(Skyrim::NiStringsExtraData* data) const
+jg::IForceFieldFactory* jg::ForceFieldManager::getFactory(RE::NiStringsExtraData* data) const
 {
 	assert(data);
 
-	IForceFieldFactory* result = nullptr;
+	if (data && data->value && data->size > 0) {
+		std::vector<RE::BSFixedString> vec({ data->value, data->value + data->size });
 
-	if (!data->empty()) {
-		if (auto it = m_factories.find(Skyrim::BSFixedString(*data->begin())); it != m_factories.end()) {
-			result = it->second.get();
-			//_DMESSAGE("Field type: %s (%p)", data->m_data[0], data->m_data[0]);
-		}
-		else {
-			//_DMESSAGE("Unknown field type");
+		for (const auto& strData : vec)
+		{
+			if (auto it = m_factories.find(strData.c_str()); it != m_factories.end()) {
+				return it->second.get();
+				//logger::debug("Field type: {} ({})", data->m_data[0], data->m_data[0]);
+			}
+			else {
+				//logger::info("Unknown field type");
+			}
 		}
 	}
 	else {
-		//_DMESSAGE("Field data is missing a type string");
-	}
-
-	return result;
-}
-
-Skyrim::NiStringsExtraData* jg::ForceFieldManager::getFieldData(Skyrim::NiAVObject* model) const
-{
-	assert(model);
-
-	if (auto data = model->findExtraData(m_dataName)) {
-		if (is_ni_type<Skyrim::NiStringsExtraData>(*data)) {
-			return static_cast<Skyrim::NiStringsExtraData*>(data);
-		}
+		//logger::info("Field data is missing a type string");
 	}
 
 	return nullptr;
 }
 
-jg::ParamMap jg::ForceFieldManager::getFieldParameters(Skyrim::NiStringsExtraData* data) const
+RE::NiStringsExtraData* jg::ForceFieldManager::getFieldData(RE::NiAVObject* model) const
 {
-	assert(data && !data->empty());
+	assert(model);
+
+	return model->GetExtraData<RE::NiStringsExtraData>(m_dataName);
+}
+
+jg::ParamMap jg::ForceFieldManager::getFieldParameters(RE::NiStringsExtraData* data) const
+{
+	assert(data && data->size != 0);
 
 	ParamMap result;
 
-	auto it = data->begin();
-	for (++it; it != data->end(); ++it) {
-		if (*it) {
-			result.insert(parseParamStr(*it));
-		}
+	std::vector<RE::BSFixedString> vec({ data->value, data->value + data->size });
+
+	for (const auto& strData : vec)
+	{
+		result.insert(parseParamStr(strData.c_str()));
 	}
+
 	return result;
 }
 
@@ -233,15 +224,15 @@ jg::ParamMap::value_type jg::ForceFieldManager::parseParamStr(const char* str) c
 				switch (buf[0]) {
 				case 'b':
 					result.second.b = static_cast<bool>(std::atoi(eq + 1));
-					//_DMESSAGE("%s: %s", result.first.c_str(), result.second.b ? "true" : "false");
+					//logger::info("{}: {}", result.first.c_str(), result.second.b ? "true" : "false");
 					return result;
 				case 'f':
 					result.second.f = static_cast<float>(std::atof(eq + 1));
-					//_DMESSAGE("%s: %f", result.first.c_str(), result.second.f);
+					//logger::info("{}: {}", result.first.c_str(), result.second.f);
 					return result;
 				case 'i':
 					result.second.i = std::atoi(eq + 1);
-					//_DMESSAGE("%s: %d", result.first.c_str(), result.second.i);
+					//logger::info("{}: {}", result.first.c_str(), result.second.i);
 					return result;
 				case 'q':
 				{
@@ -254,7 +245,7 @@ jg::ParamMap::value_type jg::ForceFieldManager::parseParamStr(const char* str) c
 							next = end;
 						}
 						else {
-							return { Skyrim::BSFixedString(), ParamVal() };
+							return { std::string(), ParamVal() };
 						}
 					}
 					return result;
@@ -270,22 +261,22 @@ jg::ParamMap::value_type jg::ForceFieldManager::parseParamStr(const char* str) c
 							next = end;
 						}
 						else {
-							//_DMESSAGE("%s: invalid vector", result.first.c_str());
-							return { Skyrim::BSFixedString(), ParamVal() };
+							//logger::info("{}: invalid vector", result.first.c_str());
+							return { std::string(), ParamVal() };
 						}
 					}
-					//_DMESSAGE("%s: (%f, %f, %f)", result.first.c_str(), 
+					//logger::info("{}: ({}, {}, {})", result.first.c_str(), 
 					//	result.second.v[0], result.second.v[1], result.second.v[2]);
 					return result;
 				}
 				default:
-					//_DMESSAGE("%s: NULL", result.first.c_str());
+					//logger::info("{}: NULL", result.first.c_str());
 					;
 				}
 			}
 		}
 	}
-	return { Skyrim::BSFixedString(), ParamVal()};
+	return { std::string(), ParamVal() };
 }
 
 void jg::ForceFieldManager::WorkerPool::barrierComplete() noexcept
@@ -302,7 +293,7 @@ void jg::ForceFieldManager::WorkerPool::barrierComplete() noexcept
 	//ForceFieldManager::get could hypothetically throw from the ctor of ForceFieldManager,
 	//but this should not be the first call to it.
 	catch (const std::exception& e) {
-		_ERROR("ForceFieldManager::WorkerPool::barrierComplete error: %s", e.what());
+		logger::error("ForceFieldManager::WorkerPool::barrierComplete error: {}", e.what());
 	}
 }
 
@@ -313,7 +304,7 @@ jg::ForceFieldManager::WorkerPool::WorkerPool(int n) :
 	for (auto&& worker : m_workers) {
 		worker = std::thread(&WorkerPool::work, this);
 	}
-	_VMESSAGE("%d worker threads started.", m_workers.size());
+	logger::trace("{} worker threads started.", m_workers.size());
 }
 
 jg::ForceFieldManager::WorkerPool::~WorkerPool()
@@ -363,7 +354,7 @@ void jg::ForceFieldManager::WorkerPool::work()
 			}
 		}
 		catch (const std::exception& e) {
-			_ERROR("ForceFieldManager::WorkerPool::work error: %s", e.what());
+			logger::error("ForceFieldManager::WorkerPool::work error: {}", e.what());
 		}
 
 		m_barrier.arrive_and_wait();
