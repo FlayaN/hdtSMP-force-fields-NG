@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Effect_traits.h"
-#include "Explosion_traits.h"
-#include "Hazard_traits.h"
-#include "Projectile_traits.h"
+#include "objects/Effect_traits.h"
+#include "objects/Explosion_traits.h"
+#include "objects/Hazard_traits.h"
+#include "objects/Projectile_traits.h"

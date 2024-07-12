@@ -1,7 +1,5 @@
 #pragma once
 
-#include <chrono>
-
 template<typename tick_t = long long, typename period_t = std::nano>
 class Timer
 {

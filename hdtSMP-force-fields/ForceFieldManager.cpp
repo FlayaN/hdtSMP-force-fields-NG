@@ -2,11 +2,11 @@
 
 #include "Settings.h"
 #include "Timer.h"
-#include "Bomb.h"
-#include "Cylinder.h"
-#include "Plane.h"
-#include "Sphere.h"
-#include "Vortex.h"
+#include "factories/Bomb.h"
+#include "factories/Cylinder.h"
+#include "factories/Plane.h"
+#include "factories/Sphere.h"
+#include "factories/Vortex.h"
 
 #define LOG_TIMER
 

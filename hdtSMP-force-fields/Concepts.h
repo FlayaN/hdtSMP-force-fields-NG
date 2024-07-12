@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Clock.h"
-#include "Geometry.h"
-#include "Force.h"
-#include "Transformable.h"
+#include "concepts/Clock.h"
+#include "concepts/Geometry.h"
+#include "concepts/Force.h"
+#include "concepts/Transformable.h"
